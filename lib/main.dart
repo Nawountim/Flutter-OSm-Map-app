@@ -111,13 +111,14 @@ class _MyHomePageState extends State<MyHomePage> {
       double time = (currentPosition!.timestamp.millisecondsSinceEpoch - previousPosition!.timestamp.millisecondsSinceEpoch) / 1000;
       speed = distance / time;
       double speedInKmh = speed * 3.6;
+
       NumberFormat formatter = NumberFormat.decimalPattern('0.00');
       String formattedSpeed = formatter.format(speedInKmh);
       dynamic lat = currentPosition!.latitude ;
       dynamic long = currentPosition!.longitude;
 
       setState(() {
-        speed = double.parse(formattedSpeed);
+        speed = speedInKmh;
        // GeoPoint geoPoint = GeoPoint(currentPosition.latitude, currentPosition.longitude);
 
        // controller.setMarkerIcon(currentPosition, iconicTrajetForSpeed);
