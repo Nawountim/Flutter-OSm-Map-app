@@ -6,7 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';  // Importez le package intl pour utiliser NumberFormat
-
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 
 void main() {
@@ -48,7 +48,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
 
   String formattedDistance = "";
-  String formattedDuration = "" ;
+  String formattedDuration = "00" ;
+  String formattedSpeed = "0.00" ;
+
+  dynamic firstPlace;
+
+
   double speed = 0;
 
   final controller = MapController.withUserPosition(
@@ -85,10 +90,17 @@ class _MyHomePageState extends State<MyHomePage> {
 
     WidgetsBinding.instance?.addPostFrameCallback((_) {
       initializeMap();
-      setupMapListener();
+      setupMapListenerToDrawRoad();
       checkAndRequestLocationPermission();
 
-      Timer.periodic(Duration(seconds: 1), (timer) {
+      GeoPoint lomeGeoPoint = GeoPoint(latitude:  6.215011465501078, longitude: 1.2002710075464336);
+
+
+
+      printLocationName(lomeGeoPoint, );
+
+
+      Timer.periodic(Duration(seconds: 3), (timer) {
         calculateSpeed();
       });
     });
@@ -111,26 +123,30 @@ class _MyHomePageState extends State<MyHomePage> {
       double time = (currentPosition!.timestamp.millisecondsSinceEpoch - previousPosition!.timestamp.millisecondsSinceEpoch) / 1000;
       speed = distance / time;
       double speedInKmh = speed * 3.6;
-
-      NumberFormat formatter = NumberFormat.decimalPattern('0.00');
-      String formattedSpeed = formatter.format(speedInKmh);
       dynamic lat = currentPosition!.latitude ;
       dynamic long = currentPosition!.longitude;
 
+      formattedSpeed = NumberFormat("0.00").format(speedInKmh);
+      speed = double.parse(formattedSpeed);
+
       setState(() {
-        speed = speedInKmh;
-       // GeoPoint geoPoint = GeoPoint(currentPosition.latitude, currentPosition.longitude);
+       //  speed = speedInKmh;
 
-       // controller.setMarkerIcon(currentPosition, iconicTrajetForSpeed);
-        controller.changeLocation(GeoPoint(latitude: lat, longitude: long));
+        formattedSpeed = NumberFormat("0.00").format(speedInKmh);
+        speed = double.parse(formattedSpeed);
+        //GeoPoint geoPoint = GeoPoint(currentPosition.latitude, currentPosition.longitude);
 
+        //controller.setMarkerIcon(currentPosition, iconicTrajetForSpeed);
+        //controller.changeLocation(GeoPoint(latitude: lat, longitude: long));
+        // initializeMap();setupMapListenerToDrawRoad
       });
     }
     previousPosition = currentPosition;
     currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+   // setMarkerOnMap();
   }
 
-   void setupMapListener() {
+   void setupMapListenerToDrawRoad() {
     controller.listenerMapSingleTapping.addListener(() {
       if (controller.listenerMapSingleTapping.value != null) {
         GeoPoint tappedPoint = controller.listenerMapSingleTapping.value!;
@@ -196,17 +212,60 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
   }
+  Future<String> getLocationName(GeoPoint location) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        location.latitude,
+        location.longitude,
+        localeIdentifier: 'fr',
+
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark placemark = placemarks.first;
+
+        String name = placemark.name ?? '';
+
+        String locality = placemark.locality ?? '';
+        String sublocality = placemark.subLocality ?? '';
+        String Subadministrative = placemark.subAdministrativeArea ?? '';
+        String Country = placemark.country ?? '';
+
+        // Concatène les informations pour former le nom de l'emplacement
+        String completeLocationName = ' $name, $Subadministrative, $locality, $Country';
+
+        return completeLocationName ?? '';
+      } else {
+        return 'Aucun emplacement trouvé.';
+      }
+    } catch (e) {
+      return 'Erreur lors de la recherche de l\'emplacement : $e';
+    }
+  }
 
   Future<void> printLocationName(GeoPoint location) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(
         location.latitude,
         location.longitude,
+        localeIdentifier: 'fr',
       );
 
       if (placemarks.isNotEmpty) {
         Placemark placemark = placemarks.first;
-        print('Location Name: ${placemark.name}');
+
+        // Extrait les informations pertinentes
+        String name = placemark.name ?? '';
+        String locality = placemark.locality ?? '';
+        String sublocality = placemark.subLocality ?? '';
+        String Subadministrative = placemark.subAdministrativeArea ?? '';
+        String Country = placemark.country ?? '';
+
+        // Concatène les informations pour former le nom de l'emplacement
+        String completeLocationName = ' $name, $Subadministrative, $locality, $Country';
+
+        print('Geocoding Result: $placemark');
+        print('Complete Location Name: $completeLocationName');
       } else {
         print('Aucun emplacement trouvé.');
       }
@@ -275,9 +334,8 @@ class _MyHomePageState extends State<MyHomePage> {
     }
 
     // Effacez la liste des points sélectionnés après avoir tracé la route
-    selectedPoints.clear();
+    // selectedPoints.clear();
   }
-
 
 
   /* Future<void> drawRoute() async {
@@ -315,6 +373,25 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void setMarkerOnMap() async {
+
+    GeoPoint userdiaplacementLocation = await controller.myLocation();
+
+    controller.addMarker(
+      userdiaplacementLocation,
+          markerIcon: MarkerIcon(
+            icon: Icon(
+              Icons.location_pin,
+              color: Colors.blue,
+              size: 48,
+            ),
+          ),
+        );
+    await Future.delayed(Duration(seconds: 2));
+    await controller.removeMarker(userdiaplacementLocation);
+
+  }
+
 
   Future<void> initializeMap() async {
 
@@ -330,14 +407,15 @@ class _MyHomePageState extends State<MyHomePage> {
     double latitude = userLocation.latitude;
     double longitude = userLocation.longitude;
     print('User Location: Latitude $latitude, Longitude $longitude');
-    controller.setZoom(zoomLevel: 18.5);
+    // controller.setZoom(zoomLevel: 17.5);
 
     if (mounted) {
       setState(() {
-     //   controller.setZoom(zoomLevel: 18.5);
-      //  controller.changeLocation(GeoPoint(latitude: userLocation.latitude, longitude: userLocation.longitude));
+        controller.setZoom(zoomLevel: 17.5);
+        controller.changeLocation(GeoPoint(latitude: userLocation.latitude, longitude: userLocation.longitude));
       });
     }
+
 
 
     //  await Future.delayed(Duration(seconds: 5));
@@ -425,24 +503,50 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
 
-          SizedBox(height: 20),
+          SizedBox(height: 10),
           Container(
             padding: EdgeInsets.all(16),
             color: Colors.white,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                ElevatedButton(
-                  onPressed: () {
-                    // Appel de la fonction GotoMyLocalisation pour aller à la position de l'utilisateur
-                    GotoMyLocalisation();
-                  },
-                  child: Text('Aller à ma position'),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Appel de la fonction GotoMyLocalisation pour aller à la position de l'utilisateur
+                      GotoMyLocalisation();
+                    },
+                    child: Text('Aller à ma position'),
+                  ),
                 ),
-                SizedBox(height: 16),
-                Text('Distance: ${distance} km'),
-                Text('Durée estimée: ${formattedDuration} sec'),
-                Text('Vitesse actuelle: ${speed} Km/H'),
+                SizedBox(height: 14),
+                Row(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.map, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(' ${distance} km'),
+                      ],
+                    ),
+                    Spacer(),
+                    Row(
+                      children: [
+                        Icon(Icons.timer, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text(' ${formattedDuration} sec'),
+                      ],
+                    ),
+                    Spacer(),
+                    Row(
+                      children: [
+                        Icon(Icons.speed, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Text('${formattedSpeed} Km/H'),
+                      ],
+                    ),
+                  ],
+                ),
 
               ],
             ),
@@ -498,7 +602,142 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           ),
 
+          SizedBox(height: 18),
 
+
+          Column(
+            children: [
+              // Votre code existant ici
+
+              Container(
+                height: 160,
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.5),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(height: 2,),
+                    Text(
+                      'Definissez vos adresses',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white
+                      ),
+                    ),
+
+                    Container(
+                      height: 48,
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[200],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Icon(FontAwesomeIcons.mapMarker, color: Colors.blue), // Changement de l'icône pour l'adresse d'arrivée
+                          Expanded(
+                            child: FutureBuilder<String>(
+                              future: selectedPoints.isNotEmpty ? getLocationName(selectedPoints[0]) : Future.value(''),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return CircularProgressIndicator(); // Ou un indicateur de chargement
+                                } else if (snapshot.hasError) {
+                                  return Text('Erreur : ${snapshot.error}');
+                                } else {
+                                  return snapshot.data != null && snapshot.data!.isNotEmpty
+                                      ? Text(
+                                    snapshot.data!,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                      : TextField(
+                                    decoration: InputDecoration(
+                                      hintText: 'Adresse de départ...',
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    onTap: () {
+                                      // Ajoutez ici le code pour gérer le clic sur le champ de texte
+                                    },
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(FontAwesomeIcons.pen, color: Colors.blue),
+                            onPressed: () {
+                              // Ajoutez ici le code pour modifier l'adresse d'arrivée
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      height: 48,
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[200],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Icon(FontAwesomeIcons.locationArrow, color: Colors.blue), // Changement de l'icône pour l'adresse d'arrivée
+                          Expanded(
+                            child: FutureBuilder<String>(
+                              future: selectedPoints.length > 1 ? getLocationName(selectedPoints[1]) : Future.value(''),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return CircularProgressIndicator(); // Ou un indicateur de chargement
+                                } else if (snapshot.hasError) {
+                                  return Text('Erreur : ${snapshot.error}');
+                                } else {
+                                  return snapshot.data != null && snapshot.data!.isNotEmpty
+                                      ? Text(
+                                    snapshot.data!,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                      : TextField(
+                                    decoration: InputDecoration(
+                                      hintText: 'Adresse d\'arrivée...',
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    onTap: () {
+                                      // Ajoutez ici le code pour gérer le clic sur le champ de texte
+                                    },
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(FontAwesomeIcons.pen, color: Colors.blue),
+                            onPressed: () {
+                              // Ajoutez ici le code pour modifier l'adresse d'arrivée
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 2,),
+                  ],
+                ),
+              ),
+            ],
+          ),
 
         ],
       ),
